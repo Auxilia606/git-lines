@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 
 # Git 저장소 경로 설정
-repo_path = "C:/Users/auxil/Documents/dnasd-react"
+repo_path = "C:/Users/auxil/Documents/portal-frontend"
 contributions = defaultdict(int)
 
 # 제외할 파일 확장자 목록
