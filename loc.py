@@ -9,19 +9,51 @@ import matplotlib.dates as mdates
 from matplotlib.dates import date2num, num2date
 import numpy as np
 
-
 plt.rcParams['font.family'] = 'Malgun Gothic'
 plt.rcParams['axes.unicode_minus'] = False
 
 selected_directory = None
+LAST_PATH_FILE = ".last_path.txt"
 excluded_extensions = ['.svg', '.png', '.jpg', '.gif', '.otf', '.ttf', '.woff2', '.json']
 
+
+# ────────────────────────────────
+# 📁 디렉토리 경로 저장/불러오기
+# ────────────────────────────────
+def save_last_directory(path: str):
+    try:
+        with open(LAST_PATH_FILE, "w", encoding="utf-8") as f:
+            f.write(path)
+    except Exception as e:
+        print(f"디렉토리 저장 실패: {e}")
+
+def load_last_directory():
+    global selected_directory
+    try:
+        if os.path.exists(LAST_PATH_FILE):
+            with open(LAST_PATH_FILE, "r", encoding="utf-8") as f:
+                path = f.read().strip()
+                if os.path.isdir(path):
+                    selected_directory = path
+                    dir_label.config(text=f"Selected Directory: {selected_directory}")
+    except Exception as e:
+        print(f"디렉토리 불러오기 실패: {e}")
+
+
+# ────────────────────────────────
+# 📁 디렉토리 선택
+# ────────────────────────────────
 def browse_directory():
     global selected_directory
     selected_directory = filedialog.askdirectory()
     if selected_directory:
         dir_label.config(text=f"Selected Directory: {selected_directory}")
+        save_last_directory(selected_directory)
 
+
+# ────────────────────────────────
+# 📊 Git 로그 분석
+# ────────────────────────────────
 def parse_git_log_by_unified_account(git_log):
     account_date_data = {}
     account_mapping = {}
@@ -75,10 +107,11 @@ def parse_git_log_by_unified_account(git_log):
 
     return cumulative_data, account_date_data
 
-def plot_combined_line_with_bars(cumulative_data, account_date_data):
-    import matplotlib.pyplot as plt
-    from datetime import date
 
+# ────────────────────────────────
+# 📈 하나의 차트에 선형 + 바
+# ────────────────────────────────
+def plot_combined_line_with_bars(cumulative_data, account_date_data):
     all_dates = sorted({d for data in account_date_data.values() for d in data})
     date_nums = date2num(all_dates)
     bar_width = 1.0
@@ -107,11 +140,11 @@ def plot_combined_line_with_bars(cumulative_data, account_date_data):
             bottom_list.append(cum_loc)
 
         # 위로 막대 (추가)
-        ax.bar(x_list, added_list, width=0.3, bottom=bottom_list,
+        ax.bar(x_list, added_list, width=bar_width, bottom=bottom_list,
                color='skyblue', alpha=0.6, label=f"{account} - 추가")
 
         # 아래로 막대 (삭제)
-        ax.bar(x_list, [-v for v in deleted_list], width=0.3, bottom=bottom_list,
+        ax.bar(x_list, [-v for v in deleted_list], width=bar_width, bottom=bottom_list,
                color='salmon', alpha=0.6, label=f"{account} - 삭제")
 
     ax.set_title("계정별 누적 LOC + 추가/삭제 라인수", fontsize=14)
@@ -119,7 +152,6 @@ def plot_combined_line_with_bars(cumulative_data, account_date_data):
     ax.set_xticks(date_nums)
     ax.set_xticklabels([d.strftime('%Y-%m-%d') for d in all_dates], rotation=45, ha='right')
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-
     ax.yaxis.set_major_formatter(mticker.ScalarFormatter(useMathText=False))
     ax.ticklabel_format(style='plain', axis='y')
     ax.yaxis.offsetText.set_visible(False)
@@ -130,6 +162,10 @@ def plot_combined_line_with_bars(cumulative_data, account_date_data):
     plt.tight_layout()
     plt.show()
 
+
+# ────────────────────────────────
+# 🔍 분석 실행
+# ────────────────────────────────
 def analyze_combined_chart_single_axis():
     if not selected_directory:
         messagebox.showerror("Error", "Please select a directory first.")
@@ -148,7 +184,10 @@ def analyze_combined_chart_single_axis():
     except subprocess.CalledProcessError as e:
         messagebox.showerror("Error", f"Git 분석 실패: {e}")
 
-# GUI
+
+# ────────────────────────────────
+# 🪟 GUI
+# ────────────────────────────────
 root = tk.Tk()
 root.title("Git LOC Analyzer")
 
@@ -163,5 +202,7 @@ dir_label.grid(row=0, column=1, padx=5, pady=5, sticky="w")
 
 combined_chart_button = tk.Button(frame, text="한 차트에 누적 + 추가/삭제", command=analyze_combined_chart_single_axis)
 combined_chart_button.grid(row=1, column=0, columnspan=2, pady=5)
+
+load_last_directory()  # ✅ 마지막 디렉토리 자동 로드
 
 root.mainloop()
