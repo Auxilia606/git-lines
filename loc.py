@@ -2,13 +2,11 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 import subprocess
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import matplotlib.dates as mdates
-from matplotlib.dates import date2num, num2date
-import numpy as np
-from datetime import datetime, timedelta
+from matplotlib.dates import date2num
 from tkcalendar import DateEntry
 
 plt.rcParams['font.family'] = 'Malgun Gothic'
@@ -54,9 +52,9 @@ def browse_directory():
 
 
 # ────────────────────────────────
-# 📊 Git 로그 분석
+# 📊 Git 로그 분석 (날짜 필터 적용 X)
 # ────────────────────────────────
-def parse_git_log_by_unified_account(git_log, start_date, end_date):
+def parse_git_log_by_unified_account(git_log):
     account_date_data = {}
     account_mapping = {}
     lines = git_log.splitlines()
@@ -69,11 +67,6 @@ def parse_git_log_by_unified_account(git_log, start_date, end_date):
             nickname = parts[0].strip()
             email = parts[1].strip()
             current_date = datetime.strptime(parts[2].strip(), "%Y-%m-%d %H:%M:%S %z").date()
-
-            if not (start_date <= current_date <= end_date):
-                current_account = None
-                current_date = None
-                continue  # ✅ 날짜 필터 먼저 적용
 
             unified_account = account_mapping.get(nickname) or account_mapping.get(email)
             if not unified_account:
@@ -102,25 +95,35 @@ def parse_git_log_by_unified_account(git_log, start_date, end_date):
             except ValueError:
                 pass
 
+    return account_date_data
+
+
+# ────────────────────────────────
+# 📈 누적 LOC 계산 (범위 이전 커밋 반영)
+# ────────────────────────────────
+def calculate_cumulative_data(account_date_data, start_date, end_date):
     cumulative_data = {}
     for account, date_data in account_date_data.items():
         sorted_dates = sorted(date_data.keys())
         cumulative_loc = 0
         cumulative_data[account] = {}
+
         for date in sorted_dates:
             added = date_data[date]['added']
             deleted = date_data[date]['deleted']
             cumulative_loc += (added - deleted)
-            cumulative_data[account][date] = cumulative_loc
 
-    return cumulative_data, account_date_data
+            if start_date <= date <= end_date:
+                cumulative_data[account][date] = cumulative_loc
+
+    return cumulative_data
 
 
 # ────────────────────────────────
 # 📈 하나의 차트에 선형 + 바
 # ────────────────────────────────
-def plot_combined_line_with_bars(cumulative_data, account_date_data):
-    all_dates = sorted({d for data in account_date_data.values() for d in data})
+def plot_combined_line_with_bars(cumulative_data, account_date_data, start_date, end_date):
+    all_dates = sorted({d for data in cumulative_data.values() for d in data})
     if not all_dates:
         messagebox.showinfo("알림", "선택한 날짜 범위 내에 커밋 데이터가 없습니다.")
         return
@@ -194,8 +197,16 @@ def analyze_combined_chart_single_axis():
             encoding="utf-8",
             env={**os.environ, "LC_ALL": "C.UTF-8"}
         )
-        cumulative_data, account_date_data = parse_git_log_by_unified_account(result, start_date, end_date)
-        plot_combined_line_with_bars(cumulative_data, account_date_data)
+        account_date_data = parse_git_log_by_unified_account(result)
+        cumulative_data = calculate_cumulative_data(account_date_data, start_date, end_date)
+
+        # 날짜 범위 외 데이터 제거 (막대 그리기용)
+        filtered_account_date_data = {
+            acc: {d: v for d, v in date_map.items() if start_date <= d <= end_date}
+            for acc, date_map in account_date_data.items()
+        }
+
+        plot_combined_line_with_bars(cumulative_data, filtered_account_date_data, start_date, end_date)
     except subprocess.CalledProcessError as e:
         messagebox.showerror("Error", f"Git 분석 실패: {e}")
 
