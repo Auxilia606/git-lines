@@ -8,6 +8,8 @@ import matplotlib.ticker as mticker
 import matplotlib.dates as mdates
 from matplotlib.dates import date2num, num2date
 import numpy as np
+from datetime import datetime, timedelta
+from tkcalendar import DateEntry
 
 plt.rcParams['font.family'] = 'Malgun Gothic'
 plt.rcParams['axes.unicode_minus'] = False
@@ -54,7 +56,7 @@ def browse_directory():
 # ────────────────────────────────
 # 📊 Git 로그 분석
 # ────────────────────────────────
-def parse_git_log_by_unified_account(git_log):
+def parse_git_log_by_unified_account(git_log, start_date, end_date):
     account_date_data = {}
     account_mapping = {}
     lines = git_log.splitlines()
@@ -68,6 +70,11 @@ def parse_git_log_by_unified_account(git_log):
             email = parts[1].strip()
             current_date = datetime.strptime(parts[2].strip(), "%Y-%m-%d %H:%M:%S %z").date()
 
+            if not (start_date <= current_date <= end_date):
+                current_account = None
+                current_date = None
+                continue  # ✅ 날짜 필터 먼저 적용
+
             unified_account = account_mapping.get(nickname) or account_mapping.get(email)
             if not unified_account:
                 unified_account = f"{nickname} ({email})"
@@ -79,6 +86,7 @@ def parse_git_log_by_unified_account(git_log):
                 account_date_data[current_account] = {}
             if current_date not in account_date_data[current_account]:
                 account_date_data[current_account][current_date] = {'added': 0, 'deleted': 0}
+
         elif current_account and current_date and "\t" in line:
             parts = line.split("\t")
             if len(parts) < 3:
@@ -113,6 +121,10 @@ def parse_git_log_by_unified_account(git_log):
 # ────────────────────────────────
 def plot_combined_line_with_bars(cumulative_data, account_date_data):
     all_dates = sorted({d for data in account_date_data.values() for d in data})
+    if not all_dates:
+        messagebox.showinfo("알림", "선택한 날짜 범위 내에 커밋 데이터가 없습니다.")
+        return
+
     date_nums = date2num(all_dates)
     bar_width = 1.0
 
@@ -172,6 +184,9 @@ def analyze_combined_chart_single_axis():
         return
 
     try:
+        start_date = start_entry.get_date()
+        end_date = end_entry.get_date()
+        
         result = subprocess.check_output(
             ["git", "log", "--pretty='%aN|%ae|%cd'", "--numstat", "--date=iso"],
             cwd=selected_directory,
@@ -179,7 +194,7 @@ def analyze_combined_chart_single_axis():
             encoding="utf-8",
             env={**os.environ, "LC_ALL": "C.UTF-8"}
         )
-        cumulative_data, account_date_data = parse_git_log_by_unified_account(result)
+        cumulative_data, account_date_data = parse_git_log_by_unified_account(result, start_date, end_date)
         plot_combined_line_with_bars(cumulative_data, account_date_data)
     except subprocess.CalledProcessError as e:
         messagebox.showerror("Error", f"Git 분석 실패: {e}")
@@ -199,6 +214,20 @@ browse_button.grid(row=0, column=0, padx=5, pady=5)
 
 dir_label = tk.Label(frame, text="Selected Directory: None", anchor="w")
 dir_label.grid(row=0, column=1, padx=5, pady=5, sticky="w")
+
+# 📅 시작일 선택
+start_label = tk.Label(frame, text="시작일:")
+start_label.grid(row=2, column=0, sticky="e")
+start_entry = DateEntry(frame, width=12)
+start_entry.set_date(datetime.today().date() - timedelta(days=14))
+start_entry.grid(row=2, column=1, sticky="w", padx=5, pady=2)
+
+# 📅 종료일 선택
+end_label = tk.Label(frame, text="종료일:")
+end_label.grid(row=3, column=0, sticky="e")
+end_entry = DateEntry(frame, width=12)
+end_entry.set_date(datetime.today().date())
+end_entry.grid(row=3, column=1, sticky="w", padx=5, pady=2)
 
 combined_chart_button = tk.Button(frame, text="한 차트에 누적 + 추가/삭제", command=analyze_combined_chart_single_axis)
 combined_chart_button.grid(row=1, column=0, columnspan=2, pady=5)
