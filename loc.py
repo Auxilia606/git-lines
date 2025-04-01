@@ -155,13 +155,27 @@ def plot_combined_line_with_bars(cumulative_data, account_date_data, start_date,
             bottom_list.append(cum_loc)
 
         # 위로 막대 (추가)
-        ax.bar(x_list, added_list, width=bar_width, bottom=bottom_list,
+        bars_added = ax.bar(x_list, added_list, width=bar_width, bottom=bottom_list,
                color='skyblue', alpha=0.6, label=f"{account} - 추가")
 
-        # 아래로 막대 (삭제)
-        ax.bar(x_list, [-v for v in deleted_list], width=bar_width, bottom=bottom_list,
-               color='salmon', alpha=0.6, label=f"{account} - 삭제")
+        # 라벨 표시 (추가 줄 수)
+        for rect, value in zip(bars_added, added_list):
+            if value > 0:
+                height = rect.get_height()
+                ax.text(rect.get_x() + rect.get_width() / 2, rect.get_y() + height + 1,
+                        f"+{value}", ha='center', va='bottom', fontsize=8, color='blue')
 
+        # 아래로 막대 (삭제)
+        bars_deleted = ax.bar(x_list, [-v for v in deleted_list], width=bar_width, bottom=bottom_list,
+               color='salmon', alpha=0.6, label=f"{account} - 삭제")
+        
+        # 라벨 표시 (삭제 줄 수)
+        for rect, value in zip(bars_deleted, deleted_list):
+            if value > 0:
+                height = rect.get_height()
+                ax.text(rect.get_x() + rect.get_width() / 2, rect.get_y() + height - 1,
+                        f"-{value}", ha='center', va='top', fontsize=8, color='red')
+                
     ax.set_title("계정별 누적 LOC + 추가/삭제 라인수", fontsize=14)
     ax.set_ylabel("라인 수")
     ax.set_xticks(date_nums)
