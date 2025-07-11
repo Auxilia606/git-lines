@@ -8,12 +8,14 @@ import matplotlib.ticker as mticker
 import matplotlib.dates as mdates
 from matplotlib.dates import date2num
 from tkcalendar import DateEntry
+from pathlib import Path
+LAST_PATH_FILE = str(Path.home() / ".git_loc_analyzer_last_path.txt")
+
 
 plt.rcParams['font.family'] = 'Malgun Gothic'
 plt.rcParams['axes.unicode_minus'] = False
 
 selected_directory = None
-LAST_PATH_FILE = ".last_path.txt"
 excluded_extensions = ['.svg', '.png', '.jpg', '.gif', '.otf', '.ttf', '.woff2', '.json']
 
 
