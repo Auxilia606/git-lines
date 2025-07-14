@@ -1,7 +1,7 @@
+build
+dist
 __pycache__/
 .venv
-build/*
-dist/*
 .env
 *.pyc
 .last_path.txt
